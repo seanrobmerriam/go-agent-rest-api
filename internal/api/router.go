@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 
 	"github.com/seanrobmerriam/go-agent-rest-api/internal/jobs"
@@ -27,20 +28,15 @@ func NewRouter(registry *tools.Registry, jobStore *jobs.Store, apiKey string) ht
 	mux.Handle("POST /v1/tools/{name}", auth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		name := r.PathValue("name")
 
-		var input json.RawMessage
-		if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
-			// Allow empty body — treat as {}
-			input = json.RawMessage("{}")
+		input, err := decodeOptionalRawJSON(r.Body)
+		if err != nil {
+			RespondErr(w, http.StatusBadRequest, ErrInvalidInput, "invalid request body")
+			return
 		}
 
 		result, err := registry.Invoke(r.Context(), name, input)
 		if err != nil {
-			var notFound *tools.NotFoundError
-			if errors.As(err, &notFound) {
-				RespondErr(w, http.StatusNotFound, ErrNotFound, err.Error())
-				return
-			}
-			RespondErr(w, http.StatusUnprocessableEntity, ErrToolError, err.Error())
+			handleToolError(w, err)
 			return
 		}
 
@@ -63,6 +59,10 @@ func NewRouter(registry *tools.Registry, jobStore *jobs.Store, apiKey string) ht
 		}
 		if body.Input == nil {
 			body.Input = json.RawMessage("{}")
+		}
+		if err := registry.Validate(body.Tool, body.Input); err != nil {
+			handleToolError(w, err)
+			return
 		}
 
 		job := jobStore.Create(body.Tool)
@@ -91,4 +91,35 @@ func NewRouter(registry *tools.Registry, jobStore *jobs.Store, apiKey string) ht
 	})
 
 	return mux
+}
+
+func decodeOptionalRawJSON(body io.Reader) (json.RawMessage, error) {
+	var input json.RawMessage
+	decoder := json.NewDecoder(body)
+	if err := decoder.Decode(&input); err != nil {
+		if errors.Is(err, io.EOF) {
+			return json.RawMessage("{}"), nil
+		}
+		return nil, err
+	}
+	if len(input) == 0 {
+		return json.RawMessage("{}"), nil
+	}
+	return input, nil
+}
+
+func handleToolError(w http.ResponseWriter, err error) {
+	var notFound *tools.NotFoundError
+	if errors.As(err, &notFound) {
+		RespondErr(w, http.StatusNotFound, ErrNotFound, err.Error())
+		return
+	}
+
+	var validationErr *tools.ValidationError
+	if errors.As(err, &validationErr) {
+		RespondErr(w, http.StatusBadRequest, ErrInvalidInput, err.Error())
+		return
+	}
+
+	RespondErr(w, http.StatusUnprocessableEntity, ErrToolError, err.Error())
 }
