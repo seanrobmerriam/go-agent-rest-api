@@ -12,7 +12,12 @@ func requireAPIKey(key string) func(http.Handler) http.Handler {
 				next.ServeHTTP(w, r)
 				return
 			}
-			bearer := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
+			authHeader := r.Header.Get("Authorization")
+			if !strings.HasPrefix(authHeader, "Bearer ") {
+				RespondErr(w, http.StatusUnauthorized, ErrUnauthorized, "invalid API key")
+				return
+			}
+			bearer := strings.TrimPrefix(authHeader, "Bearer ")
 			if bearer != key {
 				RespondErr(w, http.StatusUnauthorized, ErrUnauthorized, "invalid API key")
 				return

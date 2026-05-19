@@ -57,11 +57,17 @@ go run ./cmd/server
 - `GET /v1/jobs/{id}`
   - Fetches job status/result.
 
-If `API_KEY` is set, all endpoints except `/v1/health` require:
+If `API_KEY` is set, all endpoints except `GET /v1/health` require:
 
 ```http
 Authorization: Bearer <API_KEY>
 ```
+
+Auth rules:
+
+- The `Authorization` header must use the `Bearer ` scheme exactly. A raw key without the prefix is rejected.
+- An empty or missing header is rejected with `401 UNAUTHORIZED`.
+- If `API_KEY` is not set (dev mode), auth is skipped for all endpoints.
 
 ## Validation Rules
 
@@ -184,9 +190,10 @@ go test ./...
 Current coverage includes:
 
 - router behavior (`/v1/health`, `/v1/tools/{name}`, `/v1/jobs`, `/v1/jobs/{id}`)
-- auth middleware behavior (enabled/disabled modes)
-- schema validation behavior in the tools registry
-- built-in tool behavior for filesystem and HTTP tools
+- auth middleware: dev-mode bypass, correct token, wrong token, missing header, raw key without `Bearer` prefix, alternate scheme
+- schema validation: required fields, type checks, enum checks, unknown field rejection, malformed JSON
+- built-in file tools: write, append, read, list, path traversal rejection, create-new conflict
+- built-in HTTP tools: GET success, POST with headers and body, invalid URL
 
 ## Project Layout
 
