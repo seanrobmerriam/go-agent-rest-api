@@ -1,1 +1,28 @@
 OUTLINE.md
+
+# Go build artifacts
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, coverage, and profiling output
+*.test
+*.out
+coverage.out
+coverage.html
+*.coverprofile
+*.prof
+
+# Workspace binaries and caches
+bin/
+dist/
+cmd/server/server
+
+# Environment / local config
+.env
+.env.*
+
+# IDE and OS files
+.DS_Store
