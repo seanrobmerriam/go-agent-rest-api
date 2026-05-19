@@ -11,11 +11,14 @@ The server exposes a registry of tools, supports direct tool execution, and prov
 - Async jobs API (`POST /v1/jobs` + `GET /v1/jobs/{id}`)
 - Consistent JSON response envelope for success and error responses
 - Optional API key authentication via `API_KEY`
-- Built-in demo tools:
-  - `echo`
+- Built-in tools:
+  - `file_list`
+  - `file_read`
+  - `file_write`
   - `word_count`
   - `base64`
   - `http_get`
+  - `http_request`
   - `json_validate`
 
 ## Requirements
@@ -36,6 +39,7 @@ You can override configuration with environment variables:
 ```bash
 export ADDR=":8080"
 export API_KEY="your-api-key"  # optional; if empty, auth is disabled
+export WORKSPACE_ROOT="$(pwd)"  # optional; defaults to the current working directory
 go run ./cmd/server
 ```
 
@@ -97,12 +101,36 @@ List tools (no API key configured):
 curl -s http://localhost:8080/v1/tools | jq
 ```
 
-Invoke `echo`:
+Invoke `file_list`:
 
 ```bash
-curl -s -X POST http://localhost:8080/v1/tools/echo \
+curl -s -X POST http://localhost:8080/v1/tools/file_list \
   -H 'Content-Type: application/json' \
-  -d '{"message":"hello"}' | jq
+  -d '{"path":"."}' | jq
+```
+
+Invoke `file_read`:
+
+```bash
+curl -s -X POST http://localhost:8080/v1/tools/file_read \
+  -H 'Content-Type: application/json' \
+  -d '{"path":"README.md"}' | jq
+```
+
+Invoke `file_write`:
+
+```bash
+curl -s -X POST http://localhost:8080/v1/tools/file_write \
+  -H 'Content-Type: application/json' \
+  -d '{"path":"tmp/example.txt","content":"hello\n","mode":"overwrite","create_directories":true}' | jq
+```
+
+Invoke `http_request`:
+
+```bash
+curl -s -X POST http://localhost:8080/v1/tools/http_request \
+  -H 'Content-Type: application/json' \
+  -d '{"method":"GET","url":"https://example.com","headers":{"Accept":"text/html"}}' | jq
 ```
 
 Create async job:
