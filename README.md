@@ -7,6 +7,7 @@ The server exposes a registry of tools, supports direct tool execution, and prov
 ## Features
 
 - Tool discovery endpoint with JSON Schema-style input definitions
+- Strict input validation before dispatch (required fields, types, enums, and unknown field rejection)
 - Synchronous tool invocation endpoint
 - Async jobs API (`POST /v1/jobs` + `GET /v1/jobs/{id}`)
 - Consistent JSON response envelope for success and error responses
@@ -62,6 +63,18 @@ If `API_KEY` is set, all endpoints except `/v1/health` require:
 Authorization: Bearer <API_KEY>
 ```
 
+## Validation Rules
+
+Tool input is validated against each tool's registered `InputSchema` before handler execution.
+
+- Input must be a JSON object.
+- Required fields must be present.
+- Field types are enforced (`string`, `integer`, `boolean`, `object`).
+- Enum-constrained fields must match one of the allowed values.
+- Unknown fields are rejected.
+
+Validation failures return `400` with `error.code = INVALID_INPUT`.
+
 ## Response Envelope
 
 Success:
@@ -83,6 +96,19 @@ Error:
   "error": {
     "code": "INVALID_INPUT",
     "message": "field 'tool' is required"
+  }
+}
+```
+
+Unknown field example:
+
+```json
+{
+  "ok": false,
+  "data": null,
+  "error": {
+    "code": "INVALID_INPUT",
+    "message": "field \"extra\" is not allowed"
   }
 }
 ```
@@ -146,6 +172,21 @@ Then poll using returned `id`:
 ```bash
 curl -s http://localhost:8080/v1/jobs/<id> | jq
 ```
+
+## Testing
+
+Run the full suite:
+
+```bash
+go test ./...
+```
+
+Current coverage includes:
+
+- router behavior (`/v1/health`, `/v1/tools/{name}`, `/v1/jobs`, `/v1/jobs/{id}`)
+- auth middleware behavior (enabled/disabled modes)
+- schema validation behavior in the tools registry
+- built-in tool behavior for filesystem and HTTP tools
 
 ## Project Layout
 
